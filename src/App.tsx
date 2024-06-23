@@ -1,13 +1,22 @@
 import { useMemo, useState, useCallback } from 'react'
-import { createEditor, Editor, Transforms, Text, BaseEditor } from 'slate'
+import {
+  createEditor,
+  Editor,
+  Transforms,
+  Text,
+  BaseEditor,
+  Range,
+} from 'slate'
 import { Slate, Editable, withReact, ReactEditor } from 'slate-react'
 import { withHistory, HistoryEditor } from 'slate-history'
+import { v4 as uuidv4 } from 'uuid'
 import './App.css'
 
 interface CustomText {
   text: string
   bold?: boolean
   italic?: boolean
+  suggestion?: boolean
 }
 
 type CustomElement = { type: 'paragraph'; children: CustomText[] }
@@ -29,20 +38,44 @@ const initialValue: CustomElement[] = [
 
 const App = () => {
   const [value, setValue] = useState<CustomElement[]>(initialValue)
-  const editor = useMemo(() => withHistory(withReact(createEditor())), [])
+  const { editor, editorKey } = useMemo(
+    () => ({
+      editor: withHistory(withReact(createEditor())),
+      editorKey: uuidv4(),
+    }),
+    [],
+  )
+
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      const { selection } = editor
+      if (event.key === 'F1') {
+        if (selection == null || !Range.isCollapsed(selection)) return
+
+        editor.insertNodes({ text: 'suggestion', suggestion: true })
+        editor.setSelection(selection)
+      }
+    },
+    [editor],
+  )
 
   return (
     <>
+      <p>Press F1 to insert a suggestion</p>
       <div>
         <button onClick={() => toggleMark(editor, 'bold')}>Bold</button>
         <button onClick={() => toggleMark(editor, 'italic')}>Italic</button>
       </div>
       <Slate
         editor={editor}
+        key={editorKey}
         initialValue={value}
         onChange={(newValue) => setValue(newValue as CustomElement[])}
       >
-        <Editable renderLeaf={(props) => <Leaf {...props} />} />
+        <Editable
+          renderLeaf={(props) => <Leaf {...props} />}
+          onKeyDown={onKeyDown}
+        />
       </Slate>
     </>
   )
@@ -64,13 +97,16 @@ function isMarkActive(editor: Editor, format: 'bold' | 'italic') {
 
 function Leaf(props: { attributes: any; children: any; leaf: CustomText }) {
   let { children, leaf, attributes } = props
+  if (leaf.suggestion) {
+    children = <span style={{ color: 'grey' }}>{children}</span>
+  }
   if (leaf.bold) {
-    children = <strong {...attributes}>{children}</strong>
+    children = <strong>{children}</strong>
   }
   if (leaf.italic) {
-    children = <em {...attributes}>{children}</em>
+    children = <em>{children}</em>
   }
-  return <span {...props.attributes}>{children}</span>
+  return <span {...attributes}>{children}</span>
 }
 
 export default App
