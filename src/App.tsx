@@ -49,11 +49,27 @@ const App = () => {
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       const { selection } = editor
-      if (event.key === 'F1') {
-        if (selection == null || !Range.isCollapsed(selection)) return
 
-        editor.insertNodes({ text: 'suggestion', suggestion: true })
-        editor.setSelection(selection)
+      if (selection == null || !Range.isCollapsed(selection)) return
+
+      const [node] = Editor.next(editor) ?? [null]
+
+      if (node != null && isText(node) && node.suggestion) {
+        if (event.key === 'Tab') {
+          Transforms.select(
+            editor,
+            Editor.range(editor, ReactEditor.findPath(editor, node)),
+          )
+          Editor.addMark(editor, 'suggestion', false)
+          Transforms.collapse(editor, { edge: 'end' })
+
+          event.preventDefault()
+        }
+      } else {
+        if (event.key === 'F1') {
+          editor.insertNodes({ text: 'suggestion', suggestion: true })
+          editor.setSelection(selection)
+        }
       }
     },
     [editor],
@@ -88,6 +104,10 @@ function toggleMark(editor: Editor, format: 'bold' | 'italic') {
     { [format]: isActive ? null : true },
     { match: Text.isText, split: true },
   )
+}
+
+function isText(node: object): node is Text {
+  return 'text' in node
 }
 
 function isMarkActive(editor: Editor, format: 'bold' | 'italic') {
