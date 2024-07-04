@@ -6,6 +6,7 @@ import {
   Text,
   BaseEditor,
   Range,
+  Node,
 } from 'slate'
 import { Slate, Editable, withReact, ReactEditor } from 'slate-react'
 import { withHistory, HistoryEditor } from 'slate-history'
@@ -52,18 +53,39 @@ const App = () => {
 
       if (selection == null || !Range.isCollapsed(selection)) return
 
-      const [node] = Editor.next(editor) ?? [null]
+      const [nextNode] = Editor.next(editor) ?? [null]
 
-      if (node != null && isText(node) && node.suggestion) {
+      if (nextNode != null && isText(nextNode) && nextNode.suggestion) {
         if (event.key === 'Tab') {
           Transforms.select(
             editor,
-            Editor.range(editor, ReactEditor.findPath(editor, node)),
+            Editor.range(editor, ReactEditor.findPath(editor, nextNode)),
           )
           Editor.addMark(editor, 'suggestion', false)
           Transforms.collapse(editor, { edge: 'end' })
 
           event.preventDefault()
+        } else {
+          if (event.key.length === 1) {
+            if (Node.string(nextNode).startsWith(event.key)) {
+              Editor.deleteForward(editor)
+              Editor.addMark(editor, 'suggestion', false)
+              Editor.insertText(editor, event.key)
+              event.preventDefault()
+            } else {
+              Transforms.select(
+                editor,
+                Editor.range(editor, ReactEditor.findPath(editor, nextNode)),
+              )
+              Editor.deleteFragment(editor)
+            }
+          } else {
+            Transforms.select(
+              editor,
+              Editor.range(editor, ReactEditor.findPath(editor, nextNode)),
+            )
+            Editor.deleteFragment(editor)
+          }
         }
       } else {
         if (event.key === 'F1') {
